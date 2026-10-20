@@ -1,0 +1,13 @@
+FROM node:20-slim AS base
+WORKDIR /app
+
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+COPY backend/package*.json ./
+RUN npm install --omit=dev
+
+COPY backend/ .
+
+RUN npx prisma generate --schema=src/prisma/schema.prisma
+
+CMD ["node", "src/jobs/aiProcessing.worker.js"]

@@ -1,0 +1,98 @@
+// Prisma schema for the AI Tech News Platform
+// Uses Postgres with the pgvector extension for article embeddings.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ArticleStatus {
+  RAW
+  ENRICHED
+  FAILED
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id          String          @id @default(cuid())
+  email       String          @unique
+  password    String
+  name        String?
+  role        Role            @default(USER)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  preference  UserPreference?
+  bookmarks   Bookmark[]
+}
+
+model UserPreference {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories String[] @default([])
+  tags       String[] @default([])
+  updatedAt  DateTime @updatedAt
+}
+
+model Article {
+  id            String        @id @default(cuid())
+  title         String
+  url           String        @unique
+  source        String?
+  rawContent    String?       @db.Text
+
+  // AI-enriched fields (populated by the LLMProcessing pipeline)
+  summary       String?       @db.Text
+  headline      String?
+  category      String?
+  tags          String[]      @default([])
+
+  // pgvector column — Prisma doesn't have a native `vector` type yet,
+  // so this is added via a raw SQL migration (see database/migrations)
+  // and read/written with $queryRaw / $executeRaw.
+  // embedding  vector(1536) -- added by the pgvector SQL migration
+  // embedding_legacy_768 vector(768) -- retained by migration 002 if present
+
+  trendingScore Float         @default(0)
+  status        ArticleStatus @default(RAW)
+
+  publishedAt   DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  bookmarks     Bookmark[]
+  digests       Digest[]      @relation("DigestArticles")
+
+  @@index([category])
+  @@index([trendingScore])
+  @@index([publishedAt])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  articleId String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+}
+
+model Digest {
+  id        String    @id @default(cuid())
+  title     String
+  createdAt DateTime  @default(now())
+
+  articles  Article[] @relation("DigestArticles")
+}
