@@ -31,7 +31,7 @@ AI-Tech-News-Platform/
 └── docker-compose.yml
 ```
 
-## Pipeline (matches the activity diagram)
+## Pipeline
 
 1. **FetchNews** — scheduler pulls from News APIs / RSS / Hacker News every 30 min
 2. **StoreRaw** → **Deduplicate** — new articles are stored, near-duplicates grouped/dropped
